@@ -1,0 +1,143 @@
+@typeparam TItem
+ 
+<div class="card card-body p-2 my-2 bg-@BackgroundColor bg-opacity-10">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        @* Sayfa boyutu *@
+        <select class="form-select w-auto"
+                aria-label="Sayfa boyutu"
+                @bind="Model.Pagination.PageSize"
+                @bind:after="() => OnChanged.InvokeAsync()"
+                disabled="@Model.IsBusy">
+            @foreach (var size in PageSizes)
+            {
+                <option value="@size">@size kayıt</option>
+            }
+        </select>
+        @* Sayfa gezinme *@
+        <div class="btn-group">
+            @* İlk ve önceki sayfa *@
+            @foreach (var direction in BackwardDirections)
+            {
+                <button type="button"
+                        class="btn btn-outline-secondary"
+                        title="@direction.DisplayText()"
+                        @onclick="() => GoToPageAsync(TargetPage(direction))"
+                        disabled="@DirectionDisabled(direction)">
+                    @direction.Symbol()
+                </button>
+            }
+            @* Sayfa numaraları *@
+            @foreach (var page in VisiblePages)
+            {
+                <button type="button"
+                        class="@(page == Model.Pagination.PageNumber ? "btn btn-primary" : "btn btn-outline-secondary")"
+                        aria-current="@(page == Model.Pagination.PageNumber ? "page" : null)"
+                        @onclick="() => GoToPageAsync(page)"
+                        disabled="@(Model.IsBusy || page == Model.Pagination.PageNumber)">
+                    @(page)
+                </button>
+            }
+            @* Sonraki ve son sayfa *@
+            @foreach (var direction in ForwardDirections)
+            {
+                <button type="button"
+                        class="btn btn-outline-secondary"
+                        title="@direction.DisplayText()"
+                        @onclick="() => GoToPageAsync(TargetPage(direction))"
+                        disabled="@DirectionDisabled(direction)">
+                    @direction.Symbol()
+                </button>
+            }
+        </div>
+        @* Sayfa özeti *@
+        <span>
+            @GetPageSummary()
+        </span>
+    </div>
+</div>
+ 
+@using Attributes
+@using DbModels
+@using Extensions
+ 
+@code {
+    #region Parametreler
+ 
+    [Parameter, EditorRequired] public IDbModel<TItem> Model { get; set; } = default!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+ 
+    [Parameter] public int VisiblePageCount { get; set; } = 5;
+    [Parameter] public IReadOnlyList<int> PageSizes { get; set; } = [1, 5, 10, 20, 50, 100, 200, 500, 1000];
+ 
+    [Parameter] public string Format { get; set; } = "Sayfa {1} / {2} · {0:N0} kayıt";
+    [Parameter] public string BackgroundColor { get; set; } = "primary";
+ 
+    #endregion
+ 
+    #region Gezinme yönleri
+ 
+    private enum PageDirection
+    {
+        [DisplayText("İlk sayfa"), Symbol("⏮")] First,
+        [DisplayText("Önceki sayfa"), Symbol("◀")] Previous,
+        [DisplayText("Sonraki sayfa"), Symbol("▶")] Next,
+        [DisplayText("Son sayfa"), Symbol("⏭")] Last
+    }
+ 
+    private static readonly PageDirection[] BackwardDirections = [PageDirection.First, PageDirection.Previous];
+    private static readonly PageDirection[] ForwardDirections = [PageDirection.Next, PageDirection.Last];
+ 
+    #endregion
+ 
+    #region Sayfa görünümü
+ 
+    private IEnumerable<int> VisiblePages
+    {
+        get
+        {
+            var total = Model.Pagination.TotalPageCount;
+            if (total <= 0) return [];
+            var count = Math.Min(total, Math.Max(1, VisiblePageCount));
+            var first = Math.Max(1, Model.Pagination.PageNumber - count / 2);
+            first = Math.Min(first, total - count + 1);
+            return Enumerable.Range(first, count);
+        }
+    }
+ 
+    private string GetPageSummary()
+    {
+        var pagination = Model.Pagination;
+        return pagination.TotalPageCount == 0
+            ? "0 kayıt"
+            : string.Format(Format, pagination.TotalRecordCount, pagination.PageNumber, pagination.TotalPageCount);
+    }
+ 
+    #endregion
+ 
+    #region Sayfa gezinme işlemleri
+ 
+    private int TargetPage(PageDirection direction) => direction switch
+    {
+        PageDirection.First => 1,
+        PageDirection.Previous => Model.Pagination.PageNumber - 1,
+        PageDirection.Next => Model.Pagination.PageNumber + 1,
+        _ => Model.Pagination.TotalPageCount
+    };
+ 
+    private bool DirectionDisabled(PageDirection direction) => Model.IsBusy ||
+        (direction is PageDirection.First or PageDirection.Previous
+            ? Model.Pagination.PageNumber <= 1
+            : Model.Pagination.PageNumber >= Model.Pagination.TotalPageCount);
+ 
+    private async Task GoToPageAsync(int pageNumber)
+    {
+        if (Model.IsBusy || pageNumber < 1 || pageNumber > Model.Pagination.TotalPageCount
+            || pageNumber == Model.Pagination.PageNumber)
+            return;
+ 
+        Model.Pagination.PageNumber = pageNumber;
+        await OnChanged.InvokeAsync();
+    }
+ 
+    #endregion
+}

@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "BlazorApp",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "BlazorApp: Derle",
+            "program": "${workspaceFolder}/BlazorApp/bin/Debug/net8.0/BlazorApp.dll",
+            "cwd": "${workspaceFolder}/BlazorApp",
+            "args": [],
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "launchSettingsProfile": "https",
+            "launchSettingsFilePath": "${workspaceFolder}/BlazorApp/Properties/launchSettings.json",
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "\\bNow listening on:\\s+(https://\\S+)"
+            }
+        }
+    ]
+}

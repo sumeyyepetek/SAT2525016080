@@ -1,0 +1,70 @@
+@typeparam TItem
+
+ 
+
+<div class="card card-body p-2 my-2 bg-@BackgroundColor bg-opacity-10">
+
+    @* Sıralama alanı ve yönü *@
+
+    <select class="form-select"
+
+            aria-label="Sıralama alanı ve yönü"
+
+            @bind="Model.Pagination.OrderBy"
+
+            @bind:after="() => OnChanged.InvokeAsync()"
+
+            disabled="@Model.IsBusy">
+
+        @foreach (var definition in Definitions.Where(definition => definition.Sortable))
+
+        {
+
+            @foreach (var direction in Enum.GetValues<SortDirection>())
+
+            {
+
+                <option value="@($"{definition.Name} {direction}")">
+
+                    @direction.Symbol() @definition.Label
+
+                </option>
+
+            }
+
+        }
+
+    </select>
+
+</div>
+
+ 
+
+@using DbModels
+
+@using Enums
+
+@using Extensions
+
+@using FieldDefinitions
+
+ 
+
+@code {
+
+    #region Parametreler
+
+
+    [Parameter, EditorRequired] public IDbModel<TItem> Model { get; set; } = default!;
+
+    [Parameter] public IReadOnlyList<FieldDefinition>? FieldDefinitions { get; set; }
+
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    [Parameter] public string BackgroundColor { get; set; } = "secondary";
+    #endregion
+    #region Sıralama alanları
+    private static readonly IReadOnlyList<FieldDefinition> DefaultDefinitions = FieldDefinition.From<TItem>();
+    private IReadOnlyList<FieldDefinition> Definitions => FieldDefinitions ?? DefaultDefinitions;
+    #endregion
+}

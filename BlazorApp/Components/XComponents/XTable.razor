@@ -1,0 +1,441 @@
+@typeparam TItem
+ 
+<div class="card card-body p-2 my-2 bg-@BackgroundColor bg-opacity-10">
+    @* Üst işlem çubuğu *@
+    @if (ShowInlineActions || ShowFormActions || !string.IsNullOrWhiteSpace(Model.Message))
+    {
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            @* Satır ekleme *@
+            @if (ShowInlineActions)
+            {
+                <button type="button"
+                        class="btn btn-outline-@UIAction.New.Color()"
+                        @onclick="AddRow"
+                        disabled="@Model.IsBusy">
+                    @UIAction.New.SymbolDisplayText()
+                </button>
+            }
+            @* İşlem mesajı *@
+            @if (!string.IsNullOrWhiteSpace(Model.Message))
+            {
+                <div class="alert @(Model.IsError ? "alert-danger" : "alert-info") flex-grow-1 text-center text-break mb-0 py-2"
+                     style="min-width: 0"
+                     role="status">
+                    @Model.Message
+                </div>
+            }
+            @* Değişiklikleri kaydetme *@
+            @if (ShowInlineActions || ShowFormActions)
+            {
+                <button type="button"
+                        class="btn btn-lg btn-@UIAction.Save.Color() ms-auto"
+                        @onclick="SaveAsync"
+                        disabled="@(Model.IsBusy || !Model.HasChanges)">
+                    @UIAction.Save.SymbolDisplayText()
+                </button>
+            }
+        </div>
+    }
+ 
+    <table class="table table-striped">
+        @* Tablo başlığı *@
+        <thead>
+            <tr>
+                @* Toplu satır işlemleri *@
+                @if (ShowInlineActions)
+                {
+                    <th class="text-nowrap" style="width: 1%">
+                        <span class="d-inline-flex gap-1">
+                            <button type="button"
+                                    class="btn btn-sm border-0 btn-outline-@Operation.Update.Color()"
+                                    title="@Operation.Update.DisplayText()"
+                                    @onclick="() => SetSelectedOperation(Operation.Update)"
+                                    disabled="@(Model.IsBusy || !Model.HasSelectedExisting)">
+                                @Operation.Update.Symbol()
+                            </button>
+                            <button type="button"
+                                    class="btn btn-sm border-0 btn-outline-@Operation.Delete.Color()"
+                                    title="@Operation.Delete.DisplayText()"
+                                    @onclick="() => SetSelectedOperation(Operation.Delete)"
+                                    disabled="@(Model.IsBusy || !Model.HasSelectedExisting)">
+                                @Operation.Delete.Symbol()
+                            </button>
+                            <button type="button"
+                                    class="btn btn-sm border-0 btn-outline-@UIAction.Cancel.Color()"
+                                    title="@UIAction.Cancel.DisplayText()"
+                                    @onclick="CancelSelected"
+                                    disabled="@(Model.IsBusy || !Model.HasSelection)">
+                                @UIAction.Cancel.Symbol()
+                            </button>
+                        </span>
+                    </th>
+                }
+                @* Toplu seçim *@
+                @if (ShowSelection)
+                {
+                    <th class="text-nowrap" style="width: 1%">
+                        <span class="btn-group btn-group-sm">
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    title="@UIAction.SelectAll.DisplayText()"
+                                    @onclick="() => SelectRows(true)">
+                                @UIAction.SelectAll.Symbol()
+                            </button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    title="@UIAction.ClearSelection.DisplayText()"
+                                    @onclick="() => SelectRows(false)">
+                                @UIAction.ClearSelection.Symbol()
+                            </button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    title="@UIAction.InvertSelection.DisplayText()"
+                                    @onclick="InvertSelection">
+                                @UIAction.InvertSelection.Symbol()
+                            </button>
+                        </span>
+                    </th>
+                }
+                @* Veri sütunlarının başlıkları *@
+                @foreach (var property in Columns)
+                {
+                    <th>@ColumnLabel(property)</th>
+                }
+                @* Formda yeni kayıt açma *@
+                @if (ShowFormActions)
+                {
+                    <th class="text-nowrap" style="width: 1%">
+                        <button type="button"
+                                class="btn border-0 btn-outline-@UIAction.New.Color()"
+                                @onclick="NewAsync"
+                                disabled="@Model.IsBusy">
+                            @UIAction.New.SymbolDisplayText()
+                        </button>
+                    </th>
+                }
+            </tr>
+        </thead>
+        @* Tablo satırları *@
+        <tbody>
+            @foreach (var row in Model.Items)
+            {
+                <tr @key="row" class="@(row.Operation is { } operation ? $"table-{operation.Color()}" : null)">
+                    @* Satır işlemleri *@
+                    @if (ShowInlineActions)
+                    {
+                        <td class="text-nowrap">
+                            <span class="d-inline-flex gap-1">
+                                @if (row.Original is not null)
+                                {
+                                    <button type="button"
+                                            class="@ButtonClass(Operation.Update, row.Operation == Operation.Update)"
+                                            title="@Operation.Update.DisplayText()"
+                                            @onclick="() => ToggleOperation(row, Operation.Update)"
+                                            disabled="@Model.IsBusy">
+                                        @Operation.Update.Symbol()
+                                    </button>
+                                    <button type="button"
+                                            class="@ButtonClass(Operation.Delete, row.Operation == Operation.Delete)"
+                                            title="@Operation.Delete.DisplayText()"
+                                            @onclick="() => ToggleOperation(row, Operation.Delete)"
+                                            disabled="@Model.IsBusy">
+                                        @Operation.Delete.Symbol()
+                                    </button>
+                                }
+                                @if (row.Operation.HasValue)
+                                {
+                                    <button type="button"
+                                            class="btn btn-sm border-0 btn-outline-@UIAction.Cancel.Color()"
+                                            title="@UIAction.Cancel.DisplayText()"
+                                            @onclick="() => Cancel(row)"
+                                            disabled="@Model.IsBusy">
+                                        @UIAction.Cancel.Symbol()
+                                    </button>
+                                }
+                            </span>
+                        </td>
+                    }
+                    @* Satır seçimi ve işlem durumu *@
+                    @if (ShowSelection)
+                    {
+                        <td class="text-nowrap">
+                            <input type="checkbox"
+                                   class="form-check-input me-2"
+                                   checked="@row.Selected"
+                                   @onchange="(ChangeEventArgs _) => ToggleSelection(row)"
+                                   disabled="@Model.IsBusy" />
+                            @if (row.Operation.HasValue)
+                            {
+                                <span class="ms-2" title="@row.Operation.Value.DisplayText()">
+                                    @row.Operation.Value.Symbol()
+                                </span>
+                            }
+                        </td>
+                    }
+                    @* Veri hücreleri: düzenleme ve salt okunur görünüm *@
+                    @foreach (var property in Columns)
+                    {
+                        <td>
+                            @if (ShowInlineActions && row.Operation is Operation.Insert or Operation.Update
+                                && EditableProperties.Contains(property.Name))
+                            {
+                                @if (GetOptions(property) is { } options)
+                                {
+                                    <select class="form-select"
+                                            @onchange="e => PropertyInput.SetValue(row.Item, property, e.Value)">
+                                        @if (Nullable.GetUnderlyingType(property.PropertyType) is not null)
+                                        {
+                                            <option value=""
+                                                    selected="@(PropertyInput.InputValue(row.Item, property) == "")">
+                                                —
+                                            </option>
+                                        }
+                                        @foreach (var option in options)
+                                        {
+                                            <option value="@option.Value"
+                                                    selected="@(option.Value == PropertyInput.InputValue(row.Item, property))">
+                                                @option.Label
+                                            </option>
+                                        }
+                                    </select>
+                                }
+                                else if (PropertyInput.ValueType(property) == typeof(bool))
+                                {
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           checked="@(property.GetValue(row.Item) is true)"
+                                           @onchange="e => PropertyInput.SetValue(row.Item, property, e.Value)" />
+                                }
+                                else
+                                {
+                                    <input type="@PropertyInput.InputType(property)"
+                                           step="@PropertyInput.InputStep(property)"
+                                           class="form-control"
+                                           value="@PropertyInput.InputValue(row.Item, property)"
+                                           @onchange="e => PropertyInput.SetValue(row.Item, property, e.Value)" />
+                                }
+                            }
+                            else
+                            {
+                                @DisplayValue(row.Item, property)
+                            }
+                        </td>
+                    }
+                    @* Formda güncelleme ve silme *@
+                    @if (ShowFormActions)
+                    {
+                        <td class="text-nowrap">
+                            <span class="d-inline-flex gap-1">
+                                <button type="button"
+                                        class="btn border-0 btn-outline-@Operation.Update.Color()"
+                                        title="Formda güncelle"
+                                        @onclick="() => OnUpdate.InvokeAsync(row.Item)"
+                                        disabled="@(Model.IsBusy || row.Original is null || !OnUpdate.HasDelegate)">
+                                    @Operation.Update.Symbol()
+                                </button>
+                                <button type="button"
+                                        class="btn border-0 btn-outline-@Operation.Delete.Color()"
+                                        title="Formda sil"
+                                        @onclick="() => OnDelete.InvokeAsync(row.Item)"
+                                        disabled="@(Model.IsBusy || row.Original is null || !OnDelete.HasDelegate)">
+                                    @Operation.Delete.Symbol()
+                                </button>
+                            </span>
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+ 
+</div>
+ 
+@using System.ComponentModel.DataAnnotations
+@using System.Globalization
+@using System.Reflection
+@using DbModels
+@using Enums
+@using Extensions
+@using Helpers
+@using FieldDefinitions
+ 
+@code {
+    #region Parametreler
+ 
+    [Parameter, EditorRequired] public IDbModel<TItem> Model { get; set; } = default!;
+    [Parameter] public IReadOnlyList<FieldDefinition>? FieldDefinitions { get; set; }
+    [Parameter] public bool ShowInlineActions { get; set; } = true;
+    [Parameter] public bool ShowFormActions { get; set; } = true;
+    [Parameter] public bool ShowSelection { get; set; } = true;
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnNew { get; set; }
+    [Parameter] public EventCallback<TItem> OnUpdate { get; set; }
+    [Parameter] public EventCallback<TItem> OnDelete { get; set; }
+    [Parameter] public string BackgroundColor { get; set; } = "secondary";
+ 
+    #endregion
+ 
+    #region Sütun ve alan tanımları
+ 
+    private static readonly PropertyInfo[] Columns = typeof(TItem)
+        .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        .Where(property => property.CanRead && property.GetIndexParameters().Length == 0
+            && FieldDefinition.IsScalar(property.PropertyType))
+        .ToArray();
+ 
+    private static readonly IReadOnlyList<FieldDefinition> DefaultDefinitions = FieldDefinition.From<TItem>();
+ 
+    private IReadOnlyList<FieldDefinition> Definitions => FieldDefinitions ?? DefaultDefinitions;
+    private HashSet<string> EditableProperties = [];
+ 
+    private static bool IsKey(PropertyInfo property) =>
+        property.Name.Equals("Id", StringComparison.OrdinalIgnoreCase)
+        || property.IsDefined(typeof(KeyAttribute));
+ 
+    private IReadOnlyList<FieldOption>? GetOptions(PropertyInfo property) =>
+        Definitions.FirstOrDefault(definition => definition.Name == property.Name)?.Options;
+ 
+    #endregion
+ 
+    #region Bileşen yaşam döngüsü
+ 
+    protected override void OnParametersSet()
+    {
+        EditableProperties = Definitions.Select(definition => definition.Name)
+            .Where(name => typeof(TItem).GetProperty(name) is { } property
+                && property.CanWrite && !IsKey(property)
+                && (FieldDefinitions is not null || property.DeclaringType == typeof(TItem)))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+ 
+    #endregion
+ 
+    #region Görünüm yardımcıları
+ 
+    private string ColumnLabel(PropertyInfo property) =>
+        Definitions.FirstOrDefault(definition => definition.Name == property.Name)?.Label
+        ?? property.GetCustomAttribute<DisplayAttribute>()?.GetName() ?? property.Name;
+ 
+    private string DisplayValue(TItem item, PropertyInfo property)
+    {
+        var value = property.GetValue(item);
+        var optionValue = Convert.ToString(value, CultureInfo.InvariantCulture);
+        return GetOptions(property)?.FirstOrDefault(option => option.Value == optionValue)?.Label
+            ?? Convert.ToString(value, CultureInfo.CurrentCulture) ?? "";
+    }
+ 
+    private static string ButtonClass(Operation operation, bool active) =>
+        $"btn btn-sm border-0 btn-{(active ? "" : "outline-")}{operation.Color()}";
+ 
+    #endregion
+ 
+    #region Satır seçimi
+ 
+    private void SelectRows(bool selected)
+    {
+        foreach (var row in Model.Items)
+            row.Selected = selected;
+    }
+ 
+    private void InvertSelection()
+    {
+        foreach (var row in Model.Items)
+            row.Selected = !row.Selected;
+    }
+ 
+    private static void ToggleSelection(DbItem<TItem> row)
+        => row.Selected = !row.Selected;
+ 
+    #endregion
+ 
+    #region Satır işlemleri
+ 
+    private void AddRow()
+    {
+        if (Model.IsBusy) return;
+        Model.Items.Insert(0, new DbItem<TItem>(Activator.CreateInstance<TItem>(), true));
+    }
+ 
+    private void ToggleOperation(DbItem<TItem> row, Operation operation)
+    {
+        if (row.Original is null) return;
+        if (row.Operation == operation)
+        {
+            row.Item = row.Original;
+            row.Operation = null;
+        }
+        else
+        {
+            row.Item = operation == Operation.Update
+                ? Clone(row.Original)
+                : row.Original;
+            row.Operation = operation;
+        }
+        row.Selected = true;
+    }
+ 
+    private static TItem Clone(TItem item)
+    {
+        var copy = Activator.CreateInstance<TItem>();
+        var properties =
+            typeof(TItem)
+                .GetProperties()
+                .Where(p => p.CanRead && p.CanWrite);
+ 
+        foreach (var property in properties)
+            property.SetValue(copy, property.GetValue(item));
+        return copy;
+    }
+ 
+    private void Cancel(DbItem<TItem> row)
+    {
+        if (row.Original is null)
+            Model.Items.Remove(row);
+        else
+        {
+            row.Item = row.Original;
+            row.Operation = null;
+            row.Selected = false;
+        }
+    }
+ 
+    #endregion
+ 
+    #region Toplu işlemler ve kaydetme
+ 
+    private void SetSelectedOperation(Operation operation)
+    {
+        var selected =
+            Model.Items
+                .Where(row => row.Selected && row.Original is not null)
+                .ToArray();
+ 
+        var clear = selected.Length > 0 && selected.All(row => row.Operation == operation);
+ 
+        foreach (var row in selected)
+            if (clear || row.Operation != operation)
+                ToggleOperation(row, operation);
+    }
+ 
+    private void CancelSelected()
+    {
+        foreach (var row in Model.Items.Where(row => row.Selected).ToArray())
+            Cancel(row);
+    }
+ 
+    private Task SaveAsync() => OnSave.InvokeAsync();
+ 
+    #endregion
+ 
+    #region Form işlemleri
+ 
+    private async Task NewAsync()
+    {
+        if (OnNew.HasDelegate)
+            await OnNew.InvokeAsync();
+        else
+            AddRow();
+    }
+ 
+    #endregion
+}

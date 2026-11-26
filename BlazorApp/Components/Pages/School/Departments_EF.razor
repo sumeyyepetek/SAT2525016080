@@ -1,0 +1,154 @@
+@page "/departments_ef"
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Name</th>
+            <th>Oluşturan</th>
+            <th>Oluşturma Zamanı</th>
+            <th>
+                <button type="button" class="btn btn-outline-@Operation.Insert.Color()" @onclick="OnNew">
+                    @Operation.Insert.SymbolDisplayText()
+                </button>
+            </th>
+        </tr>
+
+        @if (operation is Operation.Insert or Operation.Update or Operation.Delete)
+        {
+            <tr class="bg-@operation.Color() bg-opacity-10">
+                <th>
+                    <input class="form-control" type="text" readonly="" @bind="currentDepartment.Id" />
+                </th>
+                <th>
+                    <input class="form-control" type="text" @bind="currentDepartment.Name" />
+                </th>
+                <th>
+                    <input class="form-control" type="text" readonly="" @bind="currentDepartment.CreatedBy" />
+                </th>
+                <th>
+                    <input class="form-control" type="text" readonly="" @bind="currentDepartment.CreatedDateTime" />
+                </th>
+                <th>
+                    <button type="button" class="btn btn-@operation.Color()" @onclick="OnSaveAsync">
+                        @operation.SymbolDisplayText()
+                    </button>
+                    <button type="button" class="btn btn-@Operation.Cancel.Color()" @onclick="OnCancel">
+                        @Operation.Cancel.SymbolDisplayText()
+                    </button>
+                </th>
+            </tr>
+        }
+
+    </thead>
+    <tbody>
+        @if (departments?.Any() == true)
+        {
+            @foreach (var department in departments)
+            {
+                <tr>
+                    <td>@department.Id</td>
+                    <td>@department.Name</td>
+                    <td>@department.CreatedBy</td>
+                    <td>@department.CreatedDateTime</td>
+                    <td>
+                        <button type="button" class="btn btn-outline-@Operation.Update.Color()"
+                                @onclick="() => OnUpdate(department)">
+                            @Operation.Update.SymbolDisplayText()
+                        </button>
+                        <button type="button" class="btn btn-outline-@Operation.Delete.Color()"
+                                @onclick="() => OnDelete(department)">
+                            @Operation.Delete.SymbolDisplayText()
+                        </button>
+                    </td>
+                </tr>
+            }
+        }
+
+    </tbody>
+
+</table>
+
+@using DbContexts
+@using Entities
+@using Enums
+@using Extensions
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<XDbContext> dbContextFactory
+
+@code {
+
+    // Alanlar
+    Operation operation = Operation.List;
+    IEnumerable<Department> departments = [];
+    Department currentDepartment = new Department();
+
+    // Geçersiz kılınan metotlar
+    protected override async Task OnInitializedAsync()
+    {
+        await GetItemsAsync();
+    }
+
+    // Metotlar
+    private async Task GetItemsAsync()
+    {
+        using var db = await dbContextFactory.CreateDbContextAsync();
+        departments = await db.Departments.ToListAsync();
+    }
+
+    private void Clear()
+    {
+        currentDepartment = new Department();
+        operation = Operation.List;
+    }
+
+    private async Task OnSaveAsync()
+    {
+        using var db = await dbContextFactory.CreateDbContextAsync();
+        if (operation == Operation.Insert && currentDepartment.Id == 0)
+        {
+            currentDepartment.CreatedBy = "abc";
+            currentDepartment.CreatedDateTime = DateTime.Now;
+            await db.Departments.AddAsync(currentDepartment);
+        }
+
+        if (operation == Operation.Delete)
+        {
+            db.Departments.Remove(currentDepartment);
+        }
+
+        if (operation == Operation.Update)
+        {
+            db.Departments.Update(currentDepartment);
+        }
+
+        await db.SaveChangesAsync();
+        await GetItemsAsync();
+        Clear();
+    }
+
+    private void OnNew()
+    {
+        operation = Operation.Insert;
+        currentDepartment = new Department();
+    }
+
+    private void OnUpdate(Department department)
+    {
+        operation = Operation.Update;
+        currentDepartment = department;
+    }
+
+    private void OnDelete(Department department)
+    {
+        operation = Operation.Delete;
+        currentDepartment = department;
+    }
+
+    private void OnCancel()
+    {
+        currentDepartment = new Department();
+        operation = Operation.List;
+    }
+}

@@ -1,0 +1,312 @@
+@page "/students_ef"
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <h1 class="text-warning">@_message</h1>
+    <hr />
+}
+
+<select class="form-select" @bind="_pageSize" @bind:after="OnPageSizeChangedAsync">
+    @foreach (var size in new[] { 1, 5, 10, 50, 100 })
+    {
+        <option value="@size">
+            @size
+        </option>
+    }
+</select>
+
+<select class="form-select" @bind="_pageNumber" @bind:after="OnPageNumberChangedAsync">
+    @for (int pageIndex = 1; pageIndex <= _totalPageCount; pageIndex++)
+    {
+        <option value="@pageIndex">
+            @pageIndex
+        </option>
+    }
+</select>
+
+<select class="form-select" @bind="_selectedSortProperty"
+        @bind:after="OnSortChangedAsync">
+    @foreach (var property in typeof(Student).GetProperties())
+    {
+        <option value="@property.Name">@property.Name</option>
+    }
+</select>
+
+<select class="form-select" @bind="_sortOrder" @bind:after="OnSortChangedAsync">
+    <option value="@SortOrder.Ascending">asc</option>
+    <option value="@SortOrder.Descending">desc</option>
+</select>
+
+<hr />
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>FirstName</th>
+            <th>LastName</th>
+            <th>Gender</th>
+            <th>DepartmentId</th>
+            <th>DepartmentName</th>
+            <th>
+                <button type="button" class="btn btn-@Operation.Insert.Color()" @onclick="() => OnOperationAsync(Operation.Insert)">
+                    @Operation.Insert.SymbolDisplayText()
+                </button>
+            </th>
+        </tr>
+
+        @if (_operation is Operation.Insert or Operation.Update or Operation.Delete)
+        {
+            <tr>
+                <th>
+                    <input class="form-control" type="text" readonly="" @bind="@_currentStudent.Id" />
+                </th>
+
+                <th>
+                    <input class="form-control" type="text" @bind="@_currentStudent.FirstName" />
+                </th>
+                <th>
+                    <input class="form-control" type="text" @bind="@_currentStudent.LastName" />
+                </th>
+
+                <th>
+
+                    <select class="form-select" @bind="@_currentStudent.Gender">
+                        @foreach (var gender in Enum.GetValues<Gender>())
+                        {
+                            <option value="@gender.ToInt()">
+                                @gender.SymbolDisplayText()
+                            </option>
+                        }
+                    </select>
+
+                </th>
+
+                <th colspan="2">
+                    
+                    <select class="form-select" @bind="@_currentStudent.DepartmentId">
+                        @if (_departments?.Any() == true)
+                        {
+                            @foreach (var department in _departments)
+                            {
+                                <option value="@department.Id">
+                                    @department
+                                </option>
+                            }
+                        }
+                    </select>
+                    
+                </th>
+
+                <th>
+                    <button type="button" class="btn btn-@_operation.Color()" @onclick="OnSaveAsync">
+                        @_operation.SymbolDisplayText()
+                    </button>
+
+                    <button type="button" class="btn btn-@Operation.Cancel.Color()" @onclick="OnCancelAsync">
+                        @Operation.Cancel.SymbolDisplayText()
+                    </button>
+                </th>
+
+            </tr>
+        }
+
+    </thead>
+
+    <tbody>
+        @foreach (var student in _students)
+        {
+            var gender = student.Gender.ToEnum<Gender>();
+            <tr>
+                <td>@student.Id</td>
+                <td>@student.FirstName</td>
+                <td>@student.LastName</td>
+                <td class="text-@gender.Color()">@gender.SymbolDisplayText()</td>
+                <td>@student.DepartmentId</td>
+                <td>@student.Department?.Name</td>
+                <td>
+                    <button type="button" class="btn btn-@Operation.Update.Color()" @onclick="() => OnOperationAsync(Operation.Update, student)">
+                        @Operation.Update.SymbolDisplayText()
+                    </button>
+
+                    <button type="button" class="btn btn-@Operation.Delete.Color()" @onclick="() => OnOperationAsync(Operation.Delete, student)">
+                        @Operation.Delete.SymbolDisplayText()
+                    </button>
+                </td>
+            </tr>
+        }
+    </tbody>
+
+</table>
+
+@using DbContexts
+@using Entities
+@using Enums
+@using Extensions
+@using Microsoft.Data.SqlClient
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<XDbContext> dbContextFactory
+
+@code {
+
+    // Alanlar
+    // Düzenleme durumu
+    private Operation _operation = Operation.List;
+    private Student _currentStudent = new();
+
+    // Veri koleksiyonları
+    private IEnumerable<Student> _students = [];
+    private IEnumerable<Department> _departments = [];
+
+    // Sıralama seçimi
+    private string _selectedSortProperty = nameof(Student.Id);
+    private SortOrder _sortOrder = SortOrder.Ascending;
+
+    // Sayfalama
+    private int _pageSize = 5;
+    private int _pageNumber = 1;
+    private int _totalPageCount = 1;
+
+    // Durum
+    private string _message = "Veriler yükleniyor...";
+
+    // İlk etkileşimli çizimden sonra öğrenci listesini yükleme
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        await GetItemsAsync();
+        _message = "";
+        StateHasChanged();
+    }
+
+    // Metotlar
+    private async Task GetDepartmentsAsync()
+    {
+        using var db = await dbContextFactory.CreateDbContextAsync();
+        _departments = await db.Departments.ToListAsync();
+    }
+
+    private async Task GetItemsAsync(int pn)
+    {
+        _pageNumber = pn;
+        await GetItemsAsync();
+    }
+
+    private async Task GetItemsAsync()
+    {
+        using var db = await dbContextFactory.CreateDbContextAsync();
+
+        // Öğrenci sorgusu
+        var items = db.Students.AsQueryable();
+
+        // Özellik ve yöne göre sıralama
+        items = SortItems(items);
+
+        // Sayfalama toplamları
+        var totalItemCount = await items.CountAsync();
+        _totalPageCount = Math.Max(1, (int)Math.Ceiling(totalItemCount / (double)_pageSize));
+        _pageNumber = Math.Clamp(_pageNumber, 1, _totalPageCount);
+
+        // Sayfa seçimi
+        var skip = (_pageNumber - 1) * _pageSize;
+        var take = _pageSize;
+        _students = await items
+            .Skip(skip)
+            .Take(take)
+            .Include(s => s.Department)
+            .ToListAsync();
+    }
+
+    private IQueryable<Student> SortItems(IQueryable<Student> items)
+    => _selectedSortProperty switch
+    {
+        nameof(Student.Id) => _sortOrder == SortOrder.Ascending
+            ? items.OrderBy(student => student.Id)
+            : items.OrderByDescending(student => student.Id),
+
+        nameof(Student.FirstName) => _sortOrder == SortOrder.Ascending
+            ? items.OrderBy(student => student.FirstName).ThenBy(student => student.LastName).ThenBy(student => student.Id)
+            : items.OrderByDescending(student => student.FirstName).ThenByDescending(student => student.LastName),
+
+        nameof(Student.LastName) => _sortOrder == SortOrder.Ascending
+            ? items.OrderBy(student => student.LastName).ThenBy(student => student.FirstName).ThenBy(student => student.Id)
+            : items.OrderByDescending(student => student.LastName).ThenByDescending(student => student.FirstName),
+
+        nameof(Student.Gender) => _sortOrder == SortOrder.Ascending
+            ? items.OrderBy(student => student.Gender)
+            : items.OrderByDescending(student => student.Gender),
+
+        nameof(Student.DepartmentId) => _sortOrder == SortOrder.Ascending
+            ? items.OrderBy(student => student.DepartmentId)
+            : items.OrderByDescending(student => student.DepartmentId),
+
+        nameof(Student.Department) => _sortOrder == SortOrder.Ascending
+            ? items.OrderBy(student => student.Department!.Name)
+            : items.OrderByDescending(student => student.Department!.Name),
+
+        nameof(Student.CreatedBy) => _sortOrder == SortOrder.Ascending
+            ? items.OrderBy(student => student.CreatedBy)
+            : items.OrderByDescending(student => student.CreatedBy),
+
+        nameof(Student.CreatedDateTime) => _sortOrder == SortOrder.Ascending
+            ? items.OrderBy(student => student.CreatedDateTime)
+            : items.OrderByDescending(student => student.CreatedDateTime),
+
+        _ => items.OrderBy(student => student.Id),
+    };
+
+    private async Task OnSaveAsync()
+    {
+        using var db = await dbContextFactory.CreateDbContextAsync();
+
+        switch (_operation)
+        {
+            case Operation.Insert:
+                await db.Students.AddAsync(_currentStudent);
+                break;
+            case Operation.Delete:
+                db.Students.Remove(_currentStudent);
+                break;
+            case Operation.Update:
+                var student = await db.Students.FindAsync(_currentStudent.Id);
+                if (student != null)
+                    db.Entry(student).CurrentValues.SetValues(_currentStudent);
+                break;
+        }
+
+        // Kaydetme sonucu
+        var result = await db.SaveChangesAsync();
+        _message = $"{_operation.DisplayText()} işlemi: {result} kayıt etkilendi.";
+        await GetItemsAsync();
+        _operation = Operation.List;
+    }
+
+    private async Task OnCancelAsync()
+    {
+        if (_operation == Operation.Update)
+            await GetItemsAsync();
+
+        _currentStudent = new();
+        _operation = Operation.List;
+    }
+
+    private async Task OnOperationAsync(Operation selectedOperation, Student? student = null)
+    {
+        if (selectedOperation is Operation.Insert or Operation.Update)
+            await GetDepartmentsAsync();
+
+        _currentStudent = selectedOperation == Operation.Insert
+            ? new Student()
+            : student ?? throw new ArgumentNullException(nameof(student));
+            
+        _operation = selectedOperation;
+    }
+
+    private Task OnSortChangedAsync() => GetItemsAsync(1);
+    private Task OnPageSizeChangedAsync() => GetItemsAsync(1);
+    private Task OnPageNumberChangedAsync() => GetItemsAsync();
+
+}

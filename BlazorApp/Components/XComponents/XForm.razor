@@ -1,0 +1,194 @@
+@typeparam TItem
+ 
+<div class="card card-body p-2 my-2 bg-@Operation.Color() bg-opacity-10">
+ 
+    <EditForm Model="@item"
+              Context="editContext"
+              OnValidSubmit="SubmitAsync"
+              FormName="@($"{Operation}-{typeof(TItem).Name}")">
+        @* Form doğrulama *@
+        @if (Operation != Operation.Delete)
+        {
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+        }
+        @* Form alanları *@
+        <fieldset disabled="@(IsBusy || Operation == Operation.Delete)">
+            @foreach (var property in EditableProperties)
+            {
+                <div class="mb-3">
+                    <label for="@InputId(property)" class="form-label">@Label(property)</label>
+                    @if (Options(property) is { } options)
+                    {
+                        <select id="@InputId(property)"
+                                class="form-select"
+                                @onchange="e => SetValue(editContext, property, e.Value)">
+                            @if (Nullable.GetUnderlyingType(property.PropertyType) is not null)
+                            {
+                                <option value="" selected="@(PropertyInput.InputValue(item, property) == "")">—</option>
+                            }
+                            @foreach (var option in options)
+                            {
+                                <option value="@option.Value"
+                                        selected="@(option.Value == PropertyInput.InputValue(item, property))">
+                                    @option.Label
+                                </option>
+                            }
+                        </select>
+                    }
+                    else if (PropertyInput.ValueType(property).IsEnum)
+                    {
+                        <select id="@InputId(property)"
+                                class="form-select"
+                                @onchange="e => SetValue(editContext, property, e.Value)">
+                            @foreach (var value in Enum.GetValues(PropertyInput.ValueType(property)))
+                            {
+                                <option value="@Convert.ToInt32(value)"
+                                        selected="@(Convert.ToString(Convert.ToInt32(value)) == PropertyInput.InputValue(item, property))">
+                                    @value
+                                </option>
+                            }
+                        </select>
+                    }
+                    else if (PropertyInput.ValueType(property) == typeof(bool))
+                    {
+                        <input id="@InputId(property)"
+                               type="checkbox"
+                               class="form-check-input"
+                               checked="@(property.GetValue(item) is true)"
+                               @onchange="e => SetValue(editContext, property, e.Value)" />
+                    }
+                    else if (PropertyInput.ValueType(property) == typeof(string))
+                    {
+                        <input id="@InputId(property)"
+                               type="text"
+                               class="form-control"
+                               value="@PropertyInput.InputValue(item, property)"
+                               @oninput="e => SetValue(editContext, property, e.Value)" />
+                    }
+                    else
+                    {
+                        <input id="@InputId(property)"
+                               type="@PropertyInput.InputType(property)"
+                               step="@PropertyInput.InputStep(property)"
+                               class="form-control"
+                               value="@PropertyInput.InputValue(item, property)"
+                               @onchange="e => SetValue(editContext, property, e.Value)" />
+                    }
+                </div>
+            }
+        </fieldset>
+        @* Form işlemleri: kaydetme ve kapatma *@
+        <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-@Operation.Color()" disabled="@IsBusy">
+                @Operation.SymbolDisplayText()
+            </button>
+            <button type="button"
+                    class="btn btn-outline-@UIAction.Close.Color()"
+                    disabled="@IsBusy"
+                    @onclick="() => OnClose.InvokeAsync()">
+                    @UIAction.Close.SymbolDisplayText()
+            </button>
+        </div>
+    </EditForm>
+</div>
+ 
+@using System.ComponentModel.DataAnnotations
+@using System.Reflection
+@using Enums
+@using Extensions
+@using Helpers
+@using FieldDefinitions
+ 
+@code {
+    #region Parametreler
+ 
+    [Parameter] public IReadOnlyList<FieldDefinition>? FieldDefinitions { get; set; }
+    [Parameter] public TItem? Item { get; set; }
+ 
+    [Parameter] public bool IsBusy { get; set; }
+    [Parameter, EditorRequired] public EventCallback<TItem> OnSave { get; set; }
+ 
+    [Parameter, EditorRequired] public EventCallback OnClose { get; set; }
+    [Parameter, EditorRequired] public Operation Operation { get; set; }
+ 
+    #endregion
+ 
+    #region Form durumu
+ 
+    private TItem item = Activator.CreateInstance<TItem>();
+    private TItem? sourceItem;
+ 
+    private Operation sourceOperation;
+    private bool initialized;
+ 
+    #endregion
+ 
+    #region Alan tanımları
+ 
+    private static readonly IReadOnlyList<FieldDefinition> DefaultDefinitions = FieldDefinition.From<TItem>();
+ 
+    private IReadOnlyList<FieldDefinition> Definitions => FieldDefinitions ?? DefaultDefinitions;
+ 
+    private static readonly PropertyInfo[] ScalarProperties = typeof(TItem)
+        .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        .Where(property => property.CanRead && property.CanWrite && property.GetIndexParameters().Length == 0
+            && FieldDefinition.IsScalar(property.PropertyType))
+        .ToArray();
+ 
+    private IEnumerable<PropertyInfo> EditableProperties => ScalarProperties
+        .Where(property => !IsKey(property)
+            && (FieldDefinitions is null
+                ? property.DeclaringType == typeof(TItem)
+                : Definitions.Any(definition => definition.Name == property.Name)));
+ 
+    private static bool IsKey(PropertyInfo property) =>
+        property.Name.Equals("Id", StringComparison.OrdinalIgnoreCase)
+        || property.IsDefined(typeof(KeyAttribute));
+ 
+    #endregion
+ 
+    #region Bileşen yaşam döngüsü
+ 
+    protected override void OnParametersSet()
+    {
+        if (initialized && ReferenceEquals(sourceItem, Item) && sourceOperation == Operation)
+            return;
+ 
+        item = Activator.CreateInstance<TItem>();
+        if (Item is not null)
+            foreach (var property in ScalarProperties)
+                property.SetValue(item, property.GetValue(Item));
+ 
+        sourceItem = Item;
+        sourceOperation = Operation;
+        initialized = true;
+    }
+ 
+    #endregion
+ 
+    #region Alan görünümü
+ 
+    private string InputId(PropertyInfo property) => $"{Operation}-{typeof(TItem).Name}-{property.Name}";
+ 
+    private string Label(PropertyInfo property) =>
+        Definitions.FirstOrDefault(definition => definition.Name == property.Name)?.Label
+        ?? property.GetCustomAttribute<DisplayAttribute>()?.GetName() ?? property.Name;
+ 
+    private IReadOnlyList<FieldOption>? Options(PropertyInfo property) =>
+        Definitions.FirstOrDefault(definition => definition.Name == property.Name)?.Options;
+ 
+    #endregion
+ 
+    #region Form işlemleri
+ 
+    private void SetValue(EditContext editContext, PropertyInfo property, object? value)
+    {
+        PropertyInput.SetValue(item, property, value);
+        editContext.NotifyFieldChanged(editContext.Field(property.Name));
+    }
+ 
+    private Task SubmitAsync() => IsBusy ? Task.CompletedTask : OnSave.InvokeAsync(item);
+ 
+    #endregion
+}

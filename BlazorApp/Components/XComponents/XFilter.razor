@@ -1,0 +1,77 @@
+@typeparam TItem
+ 
+<div class="card card-body p-2 my-2 bg-@BackgroundColor bg-opacity-10">
+    <div class="row g-2 align-items-center">
+        @* Filtre alanları *@
+        @foreach (var definition in Definitions.Where(definition => definition.Filterable))
+        {
+            <div class="col-md-2">
+                @if (definition.Options is null)
+                {
+                    <input class="form-control"
+                           aria-label="@($"{definition.Label} filtresi")"
+                           placeholder="@Placeholder(definition)"
+                           @bind="Model.Where[definition.Name]" />
+                }
+                else
+                {
+                    <select class="form-select"
+                            aria-label="@($"{definition.Label} filtresi")"
+                            @bind="Model.Where[definition.Name]">
+                        <option value="">@definition.Label: Tümü</option>
+                        @foreach (var option in definition.Options)
+                        {
+                            <option value="@option.Value">
+                                @definition.Label: @option.Label
+                            </option>
+                        }
+                    </select>
+                }
+            </div>
+        }
+        @* Filtreyi uygulama *@
+        <div class="col-md-2">
+            <button type="button"
+                    class="btn btn-outline-@UIAction.Filter.Color()"
+                    @onclick="() => OnChanged.InvokeAsync()"
+                    disabled="@Model.IsBusy">
+                @UIAction.Filter.SymbolDisplayText()
+            </button>
+        </div>
+    </div>
+</div>
+ 
+@using DbModels
+@using Enums
+@using Extensions
+@using FieldDefinitions
+ 
+@code {
+    #region Parametreler
+ 
+    [Parameter, EditorRequired] public IDbModel<TItem> Model { get; set; } = default!;
+    [Parameter] public IReadOnlyList<FieldDefinition>? FieldDefinitions { get; set; }
+ 
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public string BackgroundColor { get; set; } = "info";
+ 
+    #endregion
+ 
+    #region Filtre alanları
+ 
+    private static readonly IReadOnlyList<FieldDefinition> DefaultDefinitions = FieldDefinition.From<TItem>();
+ 
+    private IReadOnlyList<FieldDefinition> Definitions => FieldDefinitions ?? DefaultDefinitions;
+ 
+    #endregion
+ 
+    #region Filtre görünümü
+ 
+    private static string Placeholder(FieldDefinition definition) =>
+        string.IsNullOrWhiteSpace(definition.Placeholder)
+            ? definition.Label
+            : $"{definition.Label} ({definition.Placeholder})";
+ 
+    #endregion
+}
+ 
