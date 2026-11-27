@@ -1,0 +1,80 @@
+@typeparam TItem
+ 
+<XPageTitle Title="@Title" />
+ 
+<div class="d-flex flex-wrap align-items-end gap-2 my-2">
+<label>
+
+       Başlangıç
+<input type="date" class="form-control" @bind="from" @bind:format="yyyy-MM-dd" disabled="@model.IsBusy" />
+</label>
+<label>
+
+        Bitiş
+<input type="date" class="form-control" @bind="to" @bind:format="yyyy-MM-dd" disabled="@model.IsBusy" />
+</label>
+<button type="button" class="btn btn-primary" @onclick="LoadAsync" disabled="@model.IsBusy">Listele</button>
+</div>
+<p class="text-muted">Tarih ve saatler Türkiye saatine göredir. Bitiş günü dahildir.</p>
+ 
+<XTable TItem="TItem" Model="model" ShowInlineActions="false" ShowFormActions="false" ShowSelection="false" />
+ 
+@using DbModels
+
+@using Logging
+ 
+@code {
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    [Parameter, EditorRequired] public Func<DateTime, DateTime, Task<List<TItem>>> Load { get; set; } = default!;
+ 
+    private readonly DbModel<TItem> model = new();
+
+    private DateTime from = LogDates.Today;
+
+    private DateTime to = LogDates.Today;
+ 
+    protected override Task OnInitializedAsync() => LoadAsync();
+ 
+    private async Task LoadAsync()
+
+    {
+
+        if (model.IsBusy) return;
+
+        model.IsBusy = true;
+
+        model.Items = [];
+
+        try
+
+        {
+
+            var items = await Load(from, to);
+
+            model.Items = items.Select(item => new DbItem<TItem>(item)).ToList();
+
+            model.IsError = false;
+
+            model.Message = items.Count == 0 ? "Kayıt bulunamadı." : $"{items.Count} kayıt listelendi.";
+
+        }
+
+        catch (Exception ex)
+
+        {
+
+            model.IsError = true;
+
+            model.Message = ex.Message;
+
+        }
+
+        finally { model.IsBusy = false; }
+
+    }
+
+}
+
+ 

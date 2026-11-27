@@ -1,0 +1,35 @@
+Adım-01: BlazorApp projesinde Models klasörünün içinde Services klasörünü oluştur. Klasör: BlazorApp/Models/Services.
+
+Adım-02: Models klasörünün içinde Modals klasörünü oluştur. Modal türünü, seçeneklerini, isteğini ve sonucunu Modals ad alanında ayrı dosyalarda tanımla. Dosyalar: ModalType.cs, ModalOptions.cs, ModalRequest.cs ve ModalResult.cs. Klasör: BlazorApp/Models/Modals.
+
+Adım-03: Mesaj, seçenekler veya alt bileşen ile modal açan ve sonucu asenkron döndüren Show metotlarını oluştur. Dosya: ModalService.cs.
+
+Adım-04: Modalı onay veya iptal sonucu ve isteğe bağlı bir değer ile kapatan Close metodunu oluştur. Dosya: ModalService.cs.
+
+Adım-05: Alert, confirm ve prompt türlerini sade Bootstrap sınıflarıyla gösteren ortak modal bileşenini oluştur. Dosya: XModal.razor. Klasör: BlazorApp/Components/XComponents.
+
+Adım-06: Alt bileşeni modalın gövdesinde DynamicComponent ile göster ve parametrelerini aktar. ShowFooter seçeneği ile ortak alt düğmelerin görünürlüğünü düzenle. Dosya: XModal.razor.
+
+Adım-07: AutoCloseSeconds seçeneği ile geri sayım ve otomatik kapanma işlemlerini oluştur. Süre dolduğunda iptal sonucu döndür ve modal kapanınca zamanlayıcıyı durdur. Dosya: XModal.razor.
+
+Adım-08: Modal açıldığında odağı ayarla, Escape ile kapat ve prompt alanında Enter ile onayla. Yeni modal açılırken önceki çağrıyı iptal sonucu ile tamamla; Dispose içinde olay aboneliklerini ve zamanlayıcıyı temizle. Dosya: XModal.razor.
+
+Adım-09: ModalService servisini AddScoped ile uygulamaya kaydet. Dosya: Program.cs.
+
+Adım-10: Services, Modals ve BlazorApp.Components.XComponents ad alanlarını ortak kullanıma ekle. Dosya: _Imports.razor.
+
+Adım-11: Ortak modal bileşenini uygulama düzenine bir kez ekle. Kullanım: <XModal />. Dosya: MainLayout.razor.
+
+Adım-12: Departments_Logs bileşenini kopyala, sayfa adresini /departments_logs_modals olarak düzenle ve @inject ModalService modal ile servisi ekle. Dosya: Departments_Logs_Modals.razor.
+
+Adım-13: Sayfanın üst kısmındaki XForm görünümünü kaldır. Yeni, güncelle ve sil işlemlerinde mevcut XForm bileşenini modal.Show<XForm<Entity>> ile modalın gövdesinde aç. Dosya: Departments_Logs_Modals.razor.
+
+Adım-14: XForm parametrelerini ve olaylarını modala aktar. Formun kaydetme olayında modal.Close(true, entity), kapatma olayında modal.Close() kullan. Dönen sonucu Confirmed ve Value üzerinden işleyerek form.Save veya form.Close çağır. Dosya: Departments_Logs_Modals.razor.
+
+Adım-15: Veritabanına kaydetmeden önce modal.Show ve ModalType.Confirm ile onay iste. Yalnızca Confirmed değeri true olduğunda kaydetme ve loglama işlemlerini çalıştır. Dosya: Departments_Logs_Modals.razor.
+
+Adım-16: Kaydetme sonucunu alert modalıyla göster ve autoCloseSeconds: 3 ile mesajın otomatik kapanmasını sağla. Dosya: Departments_Logs_Modals.razor.
+
+Adım-17: Ad ile hızlı ekleme düğmesi oluştur. ModalType.Prompt ile bölüm adını al, iptal durumunu ve 1-100 karakter koşulunu kontrol et; geçerli kaydı listeye ekle. Dosya: Departments_Logs_Modals.razor.
+
+Adım-18: Departments_Logs_Modals ekranının menü bağlantısını ekle. Dosya: NavMenu.razor.

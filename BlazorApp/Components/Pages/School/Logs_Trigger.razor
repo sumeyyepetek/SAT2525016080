@@ -1,0 +1,6 @@
+@page "/logs_trigger"
+@using Logging
+@using BlazorApp.Components.XComponents
+@inject LogReader logReader
+ 
+<XLogs TItem="LogEntryTrigger" Title="Trigger Logları" Load="logReader.ReadTriggerAsync" />

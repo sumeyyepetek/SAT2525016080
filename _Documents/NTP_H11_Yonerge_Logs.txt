@@ -1,0 +1,37 @@
+Adım-01: Veritabanında Logs tablolarını ve tablo tetikleyicilerini oluştur. Dosya: IVU1101.sql.
+
+Adım-02: BlazorApp projesinde Logs klasörünü oluştur. Klasör: BlazorApp/Logs.
+
+Adım-03: BlazorApp projesinde Models klasörünün içinde Logging klasörünü oluştur. Klasör: BlazorApp/Models/Logging.
+
+Adım-04: Ortak log kayıt modelini oluştur. Dosya: LogEntry.cs.
+
+Adım-05: Veritabanı log kayıtları için EF modelini oluştur. Dosya: LogEntryDb.cs.
+
+Adım-06: Tetikleyici log kayıtları için EF modelini oluştur. Dosya: LogEntryTrigger.cs.
+
+Adım-07: Log kayıtlarının tarih ve saat işlemlerini düzenle. Dosya: LogDates.cs.
+
+Adım-08: yyyyMMdd.txt dosyalarına log yazma ve dosyalardan log okuma işlemlerini oluştur. Dosya: FileLogger.cs.
+
+Adım-09: Logs tablosuna log yazma işlemini oluştur. Dosya: DbLogger.cs.
+
+Adım-10: Dosyaya ve veritabanına birlikte log yazan servisi oluştur. Dosya: LogService.cs.
+
+Adım-11: Log tablolarını EF modeline ekle ve bölüm tablosunu tetikleyiciyle çalışacak şekilde düzenle. Dosya: XDbContext.cs.
+
+Adım-12: Dosya ve veritabanı loglarını tarih aralığına göre okuyan servisi oluştur. Dosya: LogReader.cs.
+
+Adım-13: Loglama ve log okuma servislerini uygulamaya kaydet. Dosya: Program.cs.
+
+Adım-14: Departments bileşenini kopyala ve işlem ile hata kayıtlarını loglayacak şekilde düzenle. Dosya: Departments_Logs.razor.
+
+Adım-15: Log ekranları için ortak tarih filtresi ve tablo görünümünü oluştur. Dosya: XLogs.razor.
+
+Adım-16: Dosya loglarını gösteren bileşeni oluştur. Dosya: Logs_File.razor.
+
+Adım-17: Veritabanı loglarını EF ile gösteren bileşeni oluştur. Dosya: Logs_Db.razor.
+
+Adım-18: Tetikleyici loglarını EF ile gösteren bileşeni oluştur. Dosya: Logs_Trigger.razor.
+
+Adım-19: Departments_Logs ve log ekranlarının menü bağlantılarını ekle. Dosya: NavMenu.razor.

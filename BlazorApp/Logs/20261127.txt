@@ -1,0 +1,13 @@
+﻿Timestamp,Level,Category,Operation,Message
+"2026-11-27T00:27:30.5696015Z","Information","Departments_Logs","List","Bölümler listelendi. Sayfa: 1, toplam: 12."
+"2026-11-27T00:27:32.4058565Z","Error","Departments_Logs","DbLogger","Invalid object name 'dbo.Logs'."
+"2026-11-27T00:27:34.6478460Z","Information","Departments_Logs","List","Bölümler listelendi. Sayfa: 1, toplam: 12."
+"2026-11-27T00:27:35.0551866Z","Error","Departments_Logs","DbLogger","Invalid object name 'dbo.Logs'."
+"2026-11-27T00:27:41.7308576Z","Information","Departments_Logs","List","Bölümler listelendi. Sayfa: 1, toplam: 12."
+"2026-11-27T00:27:42.3110519Z","Error","Departments_Logs","DbLogger","Invalid object name 'dbo.Logs'."
+"2026-11-27T10:54:57.1914514Z","Information","Departments_Logs","List","Bölümler listelendi. Sayfa: 1, toplam: 13."
+"2026-11-27T10:55:09.6812569Z","Information","Departments_Logs","List","Bölümler listelendi. Sayfa: 1, toplam: 13."
+"2026-11-27T10:55:10.2193904Z","Information","Departments_Logs","List","Bölümler listelendi. Sayfa: 1, toplam: 13."
+"2026-11-27T10:55:12.7093405Z","Information","Departments_Logs","List","Bölümler listelendi. Sayfa: 1, toplam: 13."
+"2026-11-27T10:55:47.8599416Z","Information","Departments_Logs","List","Bölümler listelendi. Sayfa: 1, toplam: 13."
+"2026-11-27T10:55:53.1387979Z","Information","Departments_Logs","List","Bölümler listelendi. Sayfa: 1, toplam: 13."

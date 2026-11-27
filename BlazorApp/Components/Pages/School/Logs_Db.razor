@@ -1,0 +1,6 @@
+@page "/logs_db"
+@using Logging
+@using BlazorApp.Components.XComponents
+@inject LogReader logReader
+ 
+<XLogs TItem="LogEntryDb" Title="Veritabanı Logları" Load="logReader.ReadDbAsync" />

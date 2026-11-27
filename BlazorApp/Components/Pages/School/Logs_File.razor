@@ -1,0 +1,6 @@
+@page "/logs_file"
+@using Logging
+@using BlazorApp.Components.XComponents
+@inject LogReader logReader
+ 
+<XLogs TItem="LogEntry" Title="Dosya Logları" Load="logReader.ReadFileAsync" />

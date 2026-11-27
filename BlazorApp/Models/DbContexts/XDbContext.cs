@@ -1,27 +1,33 @@
 using Entities;
+using Logging;
 using Microsoft.EntityFrameworkCore;
-
-
+ 
+ 
 namespace DbContexts;
-
+ 
 public class XDbContext(DbContextOptions<XDbContext> options) : DbContext(options)
 {
-
+ 
     // DbSet özellikleri
     public DbSet<Department> Departments { get; set; }
     public DbSet<Student> Students { get; set; }
-
-
+    public DbSet<LogEntryDb> Logs { get; set; }
+    public DbSet<LogEntryTrigger> LogsTrigger { get; set; }
+ 
+ 
     // Model oluşturma metodu
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Temel model ayarları
         base.OnModelCreating(modelBuilder);
-
+ 
         // Tablolar ve şema
         modelBuilder.Entity<Department>().ToTable("Department", "School");
         modelBuilder.Entity<Student>().ToTable("Student", "School");
-
+        modelBuilder.Entity<LogEntryDb>().ToTable("Logs", "dbo", table => table.ExcludeFromMigrations());
+        modelBuilder.Entity<LogEntryTrigger>().ToTable("Logs_Trigger", "dbo", table => table.ExcludeFromMigrations());
+        modelBuilder.Entity<LogEntryTrigger>().Property(log => log.Operation).IsUnicode(false);
+ 
         // Bölüm ilişkisi
         modelBuilder.Entity<Student>()
             .HasOne(student => student.Department)
@@ -29,20 +35,20 @@ public class XDbContext(DbContextOptions<XDbContext> options) : DbContext(option
             .HasForeignKey(student => student.DepartmentId)
             .OnDelete(DeleteBehavior.Cascade)
             .HasConstraintName("FK_Student_Department");
-
+ 
         // Öğrenci sütun ayarları
         modelBuilder.Entity<Student>()
             .Property(student => student.FirstName)
             .HasMaxLength(50);
-
+ 
         modelBuilder.Entity<Student>()
             .Property(student => student.LastName)
             .HasMaxLength(50);
-
+ 
         modelBuilder.Entity<Student>()
             .Property(student => student.Gender)
             .HasDefaultValue(0);
-
+ 
         // Öğrenci ad indeksi
         modelBuilder.Entity<Student>()
             .HasIndex(student => new { student.FirstName, student.LastName })

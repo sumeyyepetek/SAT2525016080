@@ -1,0 +1,197 @@
+@page "/departments_logs"
+ 
+@* Sayfa başlığı *@
+<XPageTitle Title="Bölümler - Loglama"
+
+            Subtitle="@($"Son yükleme: {(lastLoadMilliseconds ?? 0):F2} ms")" />
+ 
+@* Listeleme: filtreleme, sıralama ve sayfalama *@
+<XFilter TItem="Entity"
+
+         Model="dbModel"
+
+         FieldDefinitions="FieldDefinitions"
+
+         OnChanged="LoadAsync" />
+ 
+<XSort TItem="Entity"
+
+       Model="dbModel"
+
+       FieldDefinitions="FieldDefinitions"
+
+       OnChanged="LoadAsync" />
+ 
+<XPager TItem="Entity"
+
+        Model="dbModel"
+
+        OnChanged="LoadAsync" />
+ 
+@* Kayıt formu *@
+
+@if (form.Row is { } formRow && formRow.Operation is { } operation)
+
+{
+<XForm @key="formRow"
+
+           TItem="Entity"
+
+           Item="formRow.Item"
+
+           FieldDefinitions="FieldDefinitions"
+
+           Operation="operation"
+
+           IsBusy="dbModel.IsBusy"
+
+           OnSave="form.Save"
+
+           OnClose="form.Close" />
+
+}
+ 
+@* Kayıt listesi ve tablo işlemleri *@
+<XTable TItem="Entity"
+
+        Model="dbModel"
+
+        FieldDefinitions="FieldDefinitions"
+
+        OnNew="() => form.Open(Operation.Insert)"
+
+        OnUpdate="item => form.Open(Operation.Update, item)"
+
+        OnDelete="item => form.Open(Operation.Delete, item)"
+
+        OnSave="SaveAsync" />
+ 
+@using System.Diagnostics
+
+@using BlazorApp.Components.XComponents
+
+@using FieldDefinitions
+
+@using DbModels
+
+@using DbProviders
+
+@using Helpers
+
+@using Entity=Entities.Department
+
+@using Enums
+ 
+@inject IDbModel<Entity> dbModel
+
+@inject IDbProvider<Entity> dbProvider
+ 
+@*Logging*@
+ 
+@inject Logging.LogService logService
+ 
+@code {
+
+    #region Alan tanımları
+ 
+    // Alan tanımları sonradan değiştirilmediği için static ile tüm bileşen örneklerinde aynı dizi paylaşılır.
+
+    private static readonly FieldDefinition[] FieldDefinitions =
+
+    [
+
+        new(nameof(Entity.Id), "Id", "2-7,12,18-24,36"),
+
+        new(nameof(Entity.Name), "Bölüm Adı", "ad1,ad2")
+
+    ];
+ 
+    #endregion
+ 
+    #region Veri yükleme
+ 
+    private double? lastLoadMilliseconds;
+ 
+    protected override Task OnInitializedAsync()
+
+    {
+
+        form = new XFormHelper<Entity>(dbModel);
+
+        dbModel.GetProcedure = "School.Sp_Get_Departments";
+
+        dbModel.SetProcedure = "School.Sp_Set_Departments";
+
+        return LoadAsync();
+
+    }
+ 
+    private async Task LoadAsync()
+
+    {
+
+        form.Close();
+
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+
+        {
+
+            await dbProvider.GetItemsAsync(dbModel);
+ 
+            //Logging
+
+            await logService.WriteAsync("List", dbModel.IsError
+
+                ? dbModel.Message ?? "Listeleme hatası."
+
+                : $"Bölümler listelendi. Sayfa: {dbModel.Pagination.PageNumber}, toplam: {dbModel.Pagination.TotalRecordCount}.",
+
+                dbModel.IsError);
+ 
+        }
+
+        finally
+
+        {
+
+            stopwatch.Stop();
+
+            lastLoadMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
+
+        }
+
+    }
+ 
+    #endregion
+ 
+    private async Task SaveAsync()
+
+    {
+
+        if (dbModel.IsBusy || !dbModel.HasChanges) return;
+ 
+        var operations = string.Join(", ", dbModel.Items.Where(row => row.Operation.HasValue)
+
+            .GroupBy(row => row.Operation!.Value)
+
+            .Select(group => $"{group.Key}: {group.Count()}"));
+ 
+        await dbProvider.SetItemsAsync(dbModel);
+
+        //logging
+
+        await logService.WriteAsync("Save", $"{operations}. {dbModel.Message}", dbModel.IsError);
+
+    }
+ 
+    #region XForm işlemleri
+ 
+    private XFormHelper<Entity> form = default!;
+ 
+    #endregion
+
+}
+
+ 

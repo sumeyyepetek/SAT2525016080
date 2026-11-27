@@ -1,0 +1,168 @@
+@page "/departments_logs_modals"
+
+@* Sayfa başlığı *@
+<XPageTitle Title="Bölümler - Loglama ve Modal"
+            Subtitle="@($"Son yükleme: {(lastLoadMilliseconds ?? 0):F2} ms")" />
+
+@* Listeleme: filtreleme, sıralama ve sayfalama *@
+<XFilter TItem="Entity"
+         Model="dbModel"
+         FieldDefinitions="FieldDefinitions"
+         OnChanged="LoadAsync" />
+
+<XSort TItem="Entity"
+       Model="dbModel"
+       FieldDefinitions="FieldDefinitions"
+       OnChanged="LoadAsync" />
+
+<XPager TItem="Entity"
+        Model="dbModel"
+        OnChanged="LoadAsync" />
+
+@* Prompt örneği: yalnızca bölüm adı ile yeni kayıt hazırlama *@
+<button type="button" class="btn btn-outline-secondary my-2" disabled="@dbModel.IsBusy"
+        @onclick="QuickAddAsync">Ad ile hızlı ekle</button>
+
+@* Kayıt listesi ve tablo işlemleri *@
+<XTable TItem="Entity"
+        Model="dbModel"
+        FieldDefinitions="FieldDefinitions"
+        OnNew="() => OpenFormAsync(Operation.Insert)"
+        OnUpdate="item => OpenFormAsync(Operation.Update, item)"
+        OnDelete="item => OpenFormAsync(Operation.Delete, item)"
+        OnSave="SaveAsync" />
+
+@using System.Diagnostics
+@using FieldDefinitions
+@using DbModels
+@using DbProviders
+@using Helpers
+@using Entity=Entities.Department
+@using Enums
+
+@inject IDbModel<Entity> dbModel
+@inject IDbProvider<Entity> dbProvider
+@inject Logging.LogService logService
+
+@*Modal*@
+@inject ModalService modal
+
+@code {
+    #region Alan tanımları
+
+    // Alan tanımları sonradan değiştirilmediği için static ile tüm bileşen örneklerinde aynı dizi paylaşılır.
+    private static readonly FieldDefinition[] FieldDefinitions =
+    [
+        new(nameof(Entity.Id), "Id", "2-7,12,18-24,36"),
+        new(nameof(Entity.Name), "Bölüm Adı", "ad1,ad2")
+    ];
+
+    #endregion
+
+    #region Veri yükleme
+
+    private double? lastLoadMilliseconds;
+
+    protected override Task OnInitializedAsync()
+    {
+        form = new XFormHelper<Entity>(dbModel);
+
+        dbModel.GetProcedure = "School.Sp_Get_Departments";
+        dbModel.SetProcedure = "School.Sp_Set_Departments";
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        form.Close();
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            await dbProvider.GetItemsAsync(dbModel);
+
+            await logService.WriteAsync("List", dbModel.IsError
+                ? dbModel.Message ?? "Listeleme hatası."
+                : $"Bölümler listelendi. Sayfa: {dbModel.Pagination.PageNumber}, toplam: {dbModel.Pagination.TotalRecordCount}.",
+                dbModel.IsError);
+
+        }
+        finally
+        {
+            stopwatch.Stop();
+            lastLoadMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
+        }
+    }
+
+    #endregion
+
+    private async Task SaveAsync()
+    {
+        if (dbModel.IsBusy || !dbModel.HasChanges) return;
+
+        var operations = string.Join(", ", dbModel.Items.Where(row => row.Operation.HasValue)
+            .GroupBy(row => row.Operation!.Value)
+            .Select(group => $"{group.Key}: {group.Count()}"));
+
+        // Confirm: kullanıcı onaylamadan veritabanına yazılmaz.
+        var confirmation = await modal.Show($"Değişiklikler kaydedilsin mi? {operations}", ModalType.Confirm,
+            title: "Kaydetme onayı");
+
+        if (!confirmation.Confirmed || dbModel.IsBusy || !dbModel.HasChanges) return;
+
+        await dbProvider.SetItemsAsync(dbModel);
+
+        await logService.WriteAsync("Save", $"{operations}. {dbModel.Message}", dbModel.IsError);
+
+        // Alert + timer: sonuç mesajı üç saniye sonra kendiliğinden kapanır.
+        await modal.Show(dbModel.Message ?? (dbModel.IsError ? "Kaydetme hatası." : "Değişiklikler kaydedildi."),
+            title: "İşlem sonucu", autoCloseSeconds: 3);
+    }
+
+    #region XForm işlemleri
+
+    private XFormHelper<Entity> form = default!;
+
+    private async Task OpenFormAsync(Operation operation, Entity? item = null)
+    {
+        form.Open(operation, item);
+        if (form.Row is not { } row) return;
+
+        // Alt bileşen: mevcut XForm, modalın gövdesinde kendi düğmeleriyle gösterilir.
+        var result = await modal.Show<XForm<Entity>>(
+            new ModalOptions { Title = "Bölüm işlemi", ShowFooter = false },
+            new()
+            {
+                [nameof(XForm<Entity>.Item)] = row.Item,
+                [nameof(XForm<Entity>.FieldDefinitions)] = FieldDefinitions,
+                [nameof(XForm<Entity>.Operation)] = operation,
+                [nameof(XForm<Entity>.IsBusy)] = dbModel.IsBusy,
+                [nameof(XForm<Entity>.OnSave)] = EventCallback.Factory.Create<Entity>(this,
+                    entity => modal.Close(true, entity)),
+                [nameof(XForm<Entity>.OnClose)] = EventCallback.Factory.Create(this,
+                    () => modal.Close())
+            });
+
+        if (result.Confirmed && result.Value is Entity entity)
+            form.Save(entity);
+        else
+            form.Close();
+    }
+
+    private async Task QuickAddAsync()
+    {
+        var result = await modal.Show("Bölüm adı", ModalType.Prompt, title: "Yeni bölüm");
+        if (!result.Confirmed) return;
+
+        var name = (result.Value as string)?.Trim();
+        if (string.IsNullOrEmpty(name) || name.Length > 100)
+        {
+            await modal.Show("Bölüm adı 1-100 karakter olmalıdır.", title: "Geçersiz ad");
+            return;
+        }
+
+        form.Open(Operation.Insert);
+        form.Save(new Entity { Name = name });
+    }
+
+    #endregion
+}

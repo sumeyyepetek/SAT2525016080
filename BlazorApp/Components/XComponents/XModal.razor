@@ -1,0 +1,151 @@
+@implements IDisposable
+@inject ModalService modal
+ 
+@if (current is { } request)
+{
+    <div @key="request" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true"
+         aria-labelledby="@titleId" style="background: rgba(0,0,0,.4)"
+         @ref="dialog" @onkeydown="HandleKeyDown">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="@titleId">@request.Options.Title</h5>
+                    <button type="button" class="btn-close" aria-label="Kapat" @onclick="() => modal.Close()"></button>
+                </div>
+                <div class="modal-body">
+                    @if (request.ComponentType is { } componentType)
+                    {
+                        <DynamicComponent Type="componentType" Parameters="request.Parameters" />
+                    }
+                    else
+                    {
+                        @if (request.Options.Message is { } message)
+                        {
+                            <p>@message</p>
+                        }
+                        @if (request.Options.Type == ModalType.Prompt)
+                        {
+                            <input class="form-control" aria-label="@(request.Options.Message ?? "Değer")"
+                                   @ref="input" @bind="value" @bind:event="oninput" @onkeydown="PromptKeyDown" />
+                        }
+                    }
+                </div>
+                @if (request.Options.ShowFooter || remainingSeconds.HasValue)
+                {
+                    <div class="modal-footer">
+                        @if (remainingSeconds.HasValue)
+                        {
+                            <small class="text-muted me-auto">@remainingSeconds sn</small>
+                        }
+                        @if (request.Options.ShowFooter)
+                        {
+                            @if (request.ComponentType is not null || request.Options.Type != ModalType.Alert)
+                            {
+                                <button type="button" class="btn btn-outline-secondary" @onclick="() => modal.Close()">
+                                    @request.Options.CancelText
+                                </button>
+                            }
+                            <button type="button" class="btn btn-primary" @onclick="Accept">@request.Options.OkText</button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+ 
+@code {
+    private readonly string titleId = $"modal-{Guid.NewGuid():N}";
+    private ModalRequest? current;
+    private CancellationTokenSource? timer;
+    private string? value;
+    private int? remainingSeconds;
+    private ElementReference dialog, input;
+    private bool focusPending;
+    private bool disposed;
+ 
+    protected override void OnInitialized()
+    {
+        modal.OnShow += Show;
+        modal.OnClose += CloseAsync;
+    }
+ 
+    private async Task<ModalResult> Show(ModalRequest request)
+    {
+        await InvokeAsync(() =>
+        {
+            if (disposed)
+            {
+                request.Completion.TrySetResult(new(false));
+                return;
+            }
+ 
+            // Yeni modal açılırsa önceki çağrı iptal sonucu ile tamamlanır.
+            Close(new(false));
+            current = request;
+            value = request.Options.Value;
+            remainingSeconds = request.Options.AutoCloseSeconds;
+            focusPending = true;
+            if (remainingSeconds.HasValue)
+            {
+                timer = new();
+                _ = RunTimer(request, timer.Token);
+            }
+            StateHasChanged();
+        });
+        return await request.Completion.Task;
+    }
+ 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!focusPending || current is null) return;
+        focusPending = false;
+        var target = current.ComponentType is null && current.Options.Type == ModalType.Prompt ? input : dialog;
+        await target.FocusAsync();
+    }
+ 
+    private async Task RunTimer(ModalRequest request, CancellationToken token)
+    {
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                await Task.Delay(1000, token);
+                await InvokeAsync(() =>
+                {
+                    if (current != request) return;
+                    remainingSeconds--;
+                    if (remainingSeconds <= 0) Close(new(false));
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+ 
+    private Task Accept() => modal.Close(true, value);
+    private Task HandleKeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? modal.Close() : Task.CompletedTask;
+    private Task PromptKeyDown(KeyboardEventArgs e) => e.Key == "Enter" ? Accept() : Task.CompletedTask;
+    private Task CloseAsync(ModalResult result) => InvokeAsync(() => { Close(result); StateHasChanged(); });
+ 
+    private void Close(ModalResult result)
+    {
+        timer?.Cancel();
+        timer?.Dispose();
+        timer = null;
+        var previous = current;
+        current = null;
+        remainingSeconds = null;
+        previous?.Completion.TrySetResult(result);
+    }
+ 
+    public void Dispose()
+    {
+        disposed = true;
+        modal.OnShow -= Show;
+        modal.OnClose -= CloseAsync;
+        Close(new(false));
+    }
+}
+ 
+ 

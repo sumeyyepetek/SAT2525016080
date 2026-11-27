@@ -1,0 +1,18 @@
+@* Tarayıcı ve sayfa başlığı *@
+<PageTitle>@Title</PageTitle>
+<h1>@Title</h1>
+
+@* İsteğe bağlı alt başlık *@
+@if (!string.IsNullOrWhiteSpace(Subtitle))
+{
+    <p class="h6 small">@Subtitle</p>
+}
+
+@code {
+    #region Parametreler
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+
+    #endregion
+}

@@ -1,15 +1,15 @@
 ﻿@implements IDisposable
-
+ 
 @inject NavigationManager NavigationManager
-
+ 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">BlazorApp</a>
     </div>
 </div>
-
+ 
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
+ 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="flex-column">
         <div class="nav-item px-3">
@@ -23,15 +23,26 @@
                 <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> (EF)Departments
             </NavLink>
         </div>
-
+       
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="students_ef">
                 <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> (EF)Students
             </NavLink>
         </div>
+       
      <div class="nav-item px-3">
             <NavLink class="nav-link" href="departments">
                 <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Departments
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="departments_logs">
+                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Departments_Logs
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="departments_logs_modals">
+                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Departments_Logs_Modals
             </NavLink>
         </div>
         <div class="nav-item px-3">
@@ -39,19 +50,19 @@
                 <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
             </NavLink>
         </div>
-
+ 
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="weather">
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
             </NavLink>
         </div>
-
+ 
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="auth">
                 <span class="bi bi-lock-nav-menu" aria-hidden="true"></span> Auth Required
             </NavLink>
         </div>
-
+ 
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item px-3">
@@ -84,25 +95,25 @@
         </AuthorizeView>
     </nav>
 </div>
-
+ 
 @code {
     private string? currentUrl;
-
+ 
     protected override void OnInitialized()
     {
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
     }
-
+ 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
         StateHasChanged();
     }
-
+ 
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
-
+ 
